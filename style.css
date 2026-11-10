@@ -2,9 +2,13 @@
    VINTAGE WINE-RED ROYAL MECHANICAL TELETYPE - 3D REALISTIC PAPER PHYSICS
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Playpen+Sans:wght@100..800&family=Redaction:ital,wght@0,400;0,700;1,400&display=swap');
 
 :root {
+  --font-display: 'Fraunces', 'Playfair Display', Georgia, serif;
+  --font-editorial: 'Cormorant Garamond', Georgia, serif;
+  --font-technical: 'Redaction', 'Courier New', monospace;
+  --font-handwritten: 'Playpen Sans', 'Comic Relief', cursive;
   --bg-darkroom: #090a0d;
   --bg-desk: #12141a;
   --paper-cream: #f6f1e7;
@@ -14,6 +18,70 @@
   --amber-glow: #ffb833;
   --amber-dim: #7a5412;
   --led-green: #39ff14;
+}
+
+/* ==========================================================================
+   CUSTOM TYPOGRAPHY & FONT HIERARCHY MAPPING
+   ========================================================================== */
+
+/* Document paper headers, titles, and step counters */
+.form-document-container h1,
+.form-document-container h2,
+.scope-header,
+.step-title,
+.sheet-directive,
+.review-title,
+.telegram-title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #1a1815;
+}
+
+/* Formal dossier copy, instruction lines, and scope options */
+.form-document-container p,
+.form-document-container .scope-item,
+.scope-description,
+.form-option-label,
+.option-row,
+.opt-label,
+.opt-brief,
+.review-sheet-inner {
+  font-family: var(--font-editorial);
+  font-size: 1.15rem;
+  line-height: 1.45;
+  font-weight: 500;
+  color: #2b2621;
+}
+
+/* Technical stamps, metadata, audit tags, and carriage indicator */
+.audit-label,
+.terminal-tag,
+.header-meta,
+.status-indicator,
+.scope-code,
+.sheet-meta-bar,
+.sheet-footer-bar,
+.telegram-stamp,
+.telegram-meta,
+.transmitted-stamp-overlay {
+  font-family: var(--font-technical);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+
+/* Annotations, checkmark indicators, or handwritten margin notes */
+.handwritten-note,
+.user-annotation,
+.margin-note,
+.paper-textarea,
+.field-lbl {
+  font-family: var(--font-handwritten);
+  font-weight: 400;
+  color: #3d3429;
 }
 
 *, *::before, *::after {
@@ -29,7 +97,7 @@ html, body {
   height: 100%;
   background: #090a0d;
   overflow: hidden;
-  font-family: 'Courier Prime', 'Special Elite', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   color: #d1d5db;
   display: flex;
   align-items: center;
@@ -44,8 +112,14 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #090a0d url("public/assets/desk.png") no-repeat center bottom / cover;
+  background: #090a0d url("assets/desk_background.png") no-repeat center bottom / cover;
   overflow: hidden;
+  transition: filter 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ambient room lighting dimming when switched to dark / lamp off */
+body.lamp-off .viewport-wrapper {
+  filter: brightness(0.55) contrast(1.1) saturate(0.85);
 }
 
 /* Main background video & fallback desk image */
@@ -93,111 +167,203 @@ html, body {
   flex-direction: column;
 }
 
-/* Ambient engagement banner */
-.ambient-banner {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
-  background: rgba(22, 17, 12, 0.92);
-  border: 1px solid rgba(212, 175, 75, 0.45);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 16px rgba(255, 184, 51, 0.2);
-  color: #ffc453;
-  font-size: 11px;
-  letter-spacing: 2.2px;
-  text-transform: uppercase;
-  padding: 6px 22px;
-  border-radius: 20px;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: opacity 0.5s ease, transform 0.5s ease;
-  will-change: opacity, transform;
-}
-
-.ambient-banner.fade-out {
-  opacity: 0;
-  transform: translate(-50%, -14px);
-  pointer-events: none;
-}
-
-.pulse-pip {
-  width: 7px;
-  height: 7px;
-  background-color: var(--amber-glow);
-  border-radius: 50%;
-  box-shadow: 0 0 8px var(--amber-glow);
-  animation: pip-blink 1.4s ease-in-out infinite;
-}
-
-@keyframes pip-blink {
-  0%, 100% { opacity: 0.3; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.15); }
-}
-
 /* Top HUD bar */
 .top-hud {
   position: absolute;
-  top: 12px;
-  left: 24px;
+  top: 16px;
   right: 24px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   z-index: 55;
   pointer-events: auto;
 }
 
-.tele-serial {
-  font-size: 10px;
-  letter-spacing: 2.2px;
-  color: rgba(220, 205, 175, 0.6);
-  font-family: 'Courier Prime', monospace;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
 .hud-controls {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
 }
 
-.hud-btn {
-  background: rgba(26, 21, 16, 0.9);
-  border: 1px solid rgba(212, 175, 75, 0.35);
-  color: #dfd4bf;
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  padding: 5px 13px;
-  border-radius: 4px;
+/* ==========================================================================
+   FROSTED GLASS PILL LIGHT TOGGLE SWITCH (PIXEL-PERFECT REPLICA)
+   ========================================================================== */
+.glass-light-toggle {
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 0;
   cursor: pointer;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-light-toggle:active {
+  transform: scale(0.96);
+}
+
+.glass-light-toggle:focus-visible .glass-toggle-track {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Frosted Glass Pill Capsule Track */
+.glass-toggle-track {
+  position: relative;
+  width: 128px;
+  height: 38px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-family: inherit;
-  transition: all 0.2s ease;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 235, 180, 0.12);
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.42) 0%, rgba(220, 228, 240, 0.20) 100%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 
+    0 10px 26px -3px rgba(0, 0, 0, 0.38),
+    0 4px 10px -2px rgba(0, 0, 0, 0.22),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.75),
+    inset 0 -1.5px 3px rgba(0, 0, 0, 0.14);
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
 }
 
-.hud-btn:hover {
-  background: rgba(38, 30, 22, 0.96);
-  border-color: rgba(255, 195, 75, 0.65);
-  color: #ffffff;
+/* Smoked glass tint when switched to dark / off */
+.glass-light-toggle.is-off .glass-toggle-track,
+body.lamp-off .glass-toggle-track {
+  background: linear-gradient(135deg, rgba(70, 78, 92, 0.48) 0%, rgba(35, 42, 52, 0.38) 100%);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 
+    0 10px 24px -3px rgba(0, 0, 0, 0.5),
+    0 4px 8px -2px rgba(0, 0, 0, 0.3),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.28),
+    inset 0 -1.5px 3px rgba(0, 0, 0, 0.3);
 }
 
-.hud-led {
-  width: 6px;
-  height: 6px;
+/* Overlapping 3D Glass Lens / Orb Knob */
+.glass-toggle-knob {
+  position: absolute;
+  top: -6px;
+  left: -5px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  background-color: var(--led-green);
-  box-shadow: 0 0 6px var(--led-green);
+  background: radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.52) 26%, rgba(225, 235, 248, 0.22) 58%, rgba(180, 196, 218, 0.45) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 8px 18px rgba(0, 0, 0, 0.34),
+    0 2px 6px rgba(0, 0, 0, 0.22),
+    inset 0 2px 4px rgba(255, 255, 255, 0.95),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  transition: transform 0.38s cubic-bezier(0.34, 1.45, 0.64, 1), background 0.35s ease, border-color 0.35s ease;
+  transform: translate3d(0, 0, 0);
+  pointer-events: none;
 }
 
-.hud-btn.muted .hud-led {
-  background-color: #ef4444;
-  box-shadow: 0 0 6px #ef4444;
+/* Sliding to the right in Dark / Off state */
+.glass-light-toggle.is-off .glass-toggle-knob,
+body.lamp-off .glass-toggle-knob {
+  transform: translate3d(88px, 0, 0);
+  background: radial-gradient(circle at 34% 28%, rgba(200, 210, 225, 0.75) 0%, rgba(140, 155, 175, 0.4) 28%, rgba(65, 78, 95, 0.25) 60%, rgba(40, 50, 65, 0.55) 100%);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* Glass Caustic Crescent Refraction */
+.knob-lens-caustic {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 68% 70%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 36%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Recessed Center Socket / Well */
+.knob-sun-well {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: background 0.3s ease;
+}
+
+.glass-light-toggle.is-off .knob-sun-well,
+body.lamp-off .knob-sun-well {
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.15);
+}
+
+/* Radiant Illuminated Sun Glyph */
+.sun-icon-svg {
+  color: #ffffff;
+  display: block;
+  filter: drop-shadow(0 0 4px #ffffff) drop-shadow(0 0 10px rgba(255, 240, 185, 0.85));
+  transition: filter 0.3s ease, opacity 0.3s ease, transform 0.38s ease;
+}
+
+.glass-light-toggle.is-off .sun-icon-svg,
+body.lamp-off .sun-icon-svg {
+  filter: none;
+  opacity: 0.38;
+  transform: rotate(-35deg) scale(0.9);
+}
+
+/* Typography Inside Track */
+.glass-toggle-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14.5px;
+  font-weight: 400;
+  letter-spacing: 0.25px;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.3s ease, transform 0.3s ease, color 0.3s ease;
+  pointer-events: none;
+}
+
+.glass-label-dark {
+  opacity: 0;
+  transform: translateX(-4px);
+  margin-left: 10px;
+}
+
+.glass-label-light {
+  opacity: 1;
+  transform: translateX(0);
+  margin-right: 12px;
+}
+
+.glass-light-toggle.is-off .glass-label-dark,
+body.lamp-off .glass-label-dark {
+  opacity: 1;
+  transform: translateX(0);
+  color: rgba(230, 235, 245, 0.9);
+}
+
+.glass-light-toggle.is-off .glass-label-light,
+body.lamp-off .glass-label-light {
+  opacity: 0;
+  transform: translateX(4px);
 }
 
 /* Hidden input to capture physical keyboard input cleanly */
@@ -236,219 +402,6 @@ html, body {
 }
 
 /* ==========================================================================
-   LAYER 1 (Z: 5): CYLINDRICALLY CURVED US LETTER (8.5 x 11) PAPER SHEET
-   ========================================================================== */
-.paper-sheet {
-  position: absolute;
-  /* Bottom edge firmly locked to platen clamp line (~34vh from bottom) */
-  bottom: clamp(260px, 34vh, 390px);
-  left: 50%;
-  /* Physical transform origin: locked to the bottom platen clamp */
-  transform-origin: bottom center;
-  /* Resting 3D cylindrical curve backward as paper leaves roller */
-  transform: translate3d(-50%, var(--feed-offset, 0px), 0) rotateX(6deg) translateZ(0);
-  /* Locked US Letter 8.5" x 11" aspect ratio (1:1.294) */
-  aspect-ratio: 8.5 / 11;
-  width: clamp(440px, 34vw, 580px);
-  max-width: 580px;
-  height: auto;
-  max-height: calc(100vh - clamp(260px, 34vh, 390px) - 24px);
-  /* Warm vintage bond / cotton parchment harmonized with warm study lamp */
-  background: 
-    radial-gradient(ellipse at 50% 15%, #fdf9f1 0%, #f7f2e4 55%, #ece2cd 100%);
-  background-color: #f7f2e4;
-  color: #1e1b17;
-  border-radius: 4px 4px 2px 2px;
-  /* Real typewriter physical margins */
-  padding: 2.8rem 2.4rem 2.2rem 2.4rem;
-  /* Multi-layered physical cast drop shadow & corner vignette */
-  box-shadow: 
-    0 16px 45px rgba(0, 0, 0, 0.75),
-    0 4px 14px rgba(0, 0, 0, 0.35),
-    0 1px 3px rgba(0, 0, 0, 0.25),
-    inset 0 0 45px rgba(185, 145, 80, 0.16),
-    inset 0 1px 2px rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(165, 135, 85, 0.28);
-  will-change: transform, opacity;
-  pointer-events: auto;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  z-index: 5;
-}
-
-/* Dynamic specular light sheen: top-to-bottom shading mimicking paper wrapping around a cylinder */
-.paper-sheet-sheen {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.01) 68%, rgba(0, 0, 0, 0.2) 100%);
-  pointer-events: none;
-  border-radius: inherit;
-  z-index: 3;
-}
-
-/* Paper Texture & Grain: fine fiber overlay & authentic pica 1.5em ruling */
-.paper-sheet::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: 
-    radial-gradient(rgba(140, 110, 70, 0.06) 1px, transparent 0),
-    linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
-    repeating-linear-gradient(to bottom, transparent, transparent calc(1.5em - 1px), rgba(160, 140, 110, 0.13) 1.5em);
-  background-size: 8px 8px, 100% 100%, 100% 1.5em;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Left vintage margin rule (red teletype ribbon guide) */
-.paper-sheet::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 24px;
-  width: 1px;
-  background: rgba(168, 35, 41, 0.25);
-  pointer-events: none;
-  z-index: 2;
-}
-
-/* Platen Roller Feeder Cast Shadow: bottom 44px linear gradient */
-.paper-platen-shadow {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 44px;
-  background: linear-gradient(to bottom, transparent 0%, rgba(20, 14, 9, 0.25) 45%, rgba(12, 8, 5, 0.65) 100%);
-  pointer-events: none;
-  border-radius: 0 0 2px 2px;
-  z-index: 6;
-}
-
-/* ==========================================================================
-   PHYSICS KEYFRAME ANIMATIONS (60-120 FPS ZERO-REFLOW HARDWARE ACCELERATED)
-   ========================================================================== */
-
-/* Mechanical Typebar Impact Jitter (Keystroke Physics: 30ms microscopic 1px vertical impact jitter) */
-@keyframes typebar-strike-a {
-  0% {
-    transform: translate3d(-50%, var(--feed-offset, 0px), 0) rotateX(6deg);
-  }
-  35% {
-    transform: translate3d(-50%, calc(var(--feed-offset, 0px) - 0.8px), 0.8px) rotateX(5.8deg);
-  }
-  100% {
-    transform: translate3d(-50%, var(--feed-offset, 0px), 0) rotateX(6deg);
-  }
-}
-
-@keyframes typebar-strike-b {
-  0% {
-    transform: translate3d(-50%, var(--feed-offset, 0px), 0) rotateX(6deg);
-  }
-  35% {
-    transform: translate3d(-50%, calc(var(--feed-offset, 0px) - 0.8px), 0.8px) rotateX(5.8deg);
-  }
-  100% {
-    transform: translate3d(-50%, var(--feed-offset, 0px), 0) rotateX(6deg);
-  }
-}
-
-.paper-sheet.strike-a {
-  animation: typebar-strike-a 30ms cubic-bezier(0.1, 0.9, 0.3, 1);
-}
-
-.paper-sheet.strike-b {
-  animation: typebar-strike-b 30ms cubic-bezier(0.1, 0.9, 0.3, 1);
-}
-
-/* Platen Advance / Line Feed Ratchet Pawl Click (Snappy increment with rebound) */
-@keyframes ratchet-pawl-click {
-  0% {
-    transform: translate3d(-50%, var(--prev-feed-offset, 0px), 0) rotateX(6deg);
-  }
-  68% {
-    /* Snappy mechanical feed stroke with slight pawl overshoot */
-    transform: translate3d(-50%, calc(var(--feed-offset, 0px) - 3px), 0.6px) rotateX(6.3deg);
-  }
-  84% {
-    /* Elastic pawl rebound */
-    transform: translate3d(-50%, calc(var(--feed-offset, 0px) + 0.8px), -0.2px) rotateX(5.9deg);
-  }
-  100% {
-    /* Firm latch into ratchet wheel teeth */
-    transform: translate3d(-50%, var(--feed-offset, 0px), 0) rotateX(6deg);
-  }
-}
-
-.paper-sheet.ratchet-advance {
-  animation: ratchet-pawl-click 160ms cubic-bezier(0.2, 1.4, 0.4, 1);
-}
-
-/* Paper Eject & Swap Dynamics */
-/* Phase 1: Rapid upward acceleration out of platen with 3D lift */
-@keyframes paper-eject-fly-out {
-  0% {
-    transform: translate3d(-50%, var(--feed-offset, 0px), 0) rotateX(6deg) rotate(0deg) rotateY(0deg);
-    opacity: 1;
-  }
-  22% {
-    transform: translate3d(-50%, calc(var(--feed-offset, 0px) + 6px), 2px) rotateX(7deg) rotate(-0.5deg) rotateY(2deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translate3d(-50%, -140%, 40px) rotate(-4deg) rotateY(8deg) rotateX(12deg);
-    opacity: 0;
-  }
-}
-
-/* Phase 2: Fresh sheet loads from underneath with elastic roll-in and top-edge flutter */
-@keyframes paper-roll-in-flutter {
-  0% {
-    transform: translate3d(-50%, 65%, -20px) rotateX(18deg) scale(0.95);
-    opacity: 0;
-  }
-  65% {
-    transform: translate3d(-50%, -6px, 4px) rotateX(4.5deg) scale(1.005) rotate(0.6deg);
-    opacity: 1;
-  }
-  84% {
-    transform: translate3d(-50%, 2px, -1px) rotateX(6.8deg) scale(0.998) rotate(-0.2deg);
-  }
-  100% {
-    transform: translate3d(-50%, 0, 0) rotateX(6deg) rotate(0deg) scale(1);
-    opacity: 1;
-  }
-}
-
-.paper-sheet.ejecting {
-  animation: paper-eject-fly-out 480ms cubic-bezier(0.35, 0, 0.2, 1) forwards !important;
-}
-
-.paper-sheet.loading-roll {
-  animation: paper-roll-in-flutter 550ms cubic-bezier(0.16, 1.2, 0.3, 1) forwards !important;
-}
-
-/* Jam shake */
-.paper-sheet.shake {
-  animation: paper-jam-shake 0.32s ease-in-out;
-}
-
-@keyframes paper-jam-shake {
-  0%, 100% { transform: translate3d(-50%, var(--feed-offset, 0px), 0) rotateX(6deg); }
-  20%, 60% { transform: translate3d(calc(-50% - 6px), var(--feed-offset, 0px), 0) rotateX(6deg) rotate(-0.5deg); }
-  40%, 80% { transform: translate3d(calc(-50% + 6px), var(--feed-offset, 0px), 0) rotateX(6deg) rotate(0.5deg); }
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-5px); }
-  40%, 80% { transform: translateX(5px); }
-}
-
-/* ==========================================================================
    PAPER STAGE & PLATEN ROLLER CLAMPING
    Layered behind typewriter foreground (z-index: 5 vs typewriter z-index: 10)
    ========================================================================== */
@@ -469,7 +422,7 @@ html, body {
   box-shadow: inset 0 0 25px rgba(180, 160, 120, 0.16), 0 8px 24px rgba(0, 0, 0, 0.42);
   border-radius: 1px;
   padding: 16px 18px 28px 18px;
-  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   color: #0F172A;
   z-index: 5;
   overflow: hidden;
@@ -545,6 +498,36 @@ html, body {
   animation: shake 0.32s ease-in-out;
 }
 
+/* Mechanical Platen Carriage Recoil on Step Transition (ui-ux-physics standard) */
+.stage-viewport.carriage-recoil,
+.typewriter-stage.carriage-recoil {
+  animation: carriageRecoilAnim 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes carriageRecoilAnim {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(22px) rotate(0.4deg); }
+  50% { transform: translateX(-8px) rotate(-0.2deg); }
+  75% { transform: translateX(3px); }
+  90% { transform: translateX(-1px); }
+  100% { transform: translateX(0) rotate(0deg); }
+}
+
+/* Mechanical Paper Feed Ratchet Shudder (ui-ux-physics: -24px advance with micro-jitter) */
+.typewriter-paper.paper-feed-shudder {
+  animation: paperFeedShudderAnim 0.44s ease-out forwards;
+}
+
+@keyframes paperFeedShudderAnim {
+  0% { transform: translateY(0); filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
+  20% { transform: translateY(-8px) scale(0.998); }
+  35% { transform: translateY(-5px) scale(1.002); }
+  55% { transform: translateY(-18px) scale(0.999); }
+  70% { transform: translateY(-15px) scale(1.001); }
+  85% { transform: translateY(-24px); }
+  100% { transform: translateY(-24px); filter: drop-shadow(0 4px 16px rgba(0,0,0,0.5)); }
+}
+
 #paperContent {
   position: relative;
   z-index: 4;
@@ -553,7 +536,7 @@ html, body {
   justify-content: space-between;
   height: 100%;
   padding: 4px 6px;
-  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   color: #0F172A;
 }
 
@@ -561,7 +544,7 @@ html, body {
   display: flex;
   justify-content: space-between;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.08em;
   opacity: 0.65;
   border-bottom: 1px dashed rgba(15, 23, 42, 0.35);
@@ -571,7 +554,7 @@ html, body {
 
 .sheet-directive {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.04em;
   margin-bottom: 8px;
   opacity: 0.85;
@@ -588,7 +571,7 @@ html, body {
 .option-box {
   display: inline-block;
   width: 26px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -1px;
 }
 
@@ -597,7 +580,7 @@ html, body {
   flex-direction: column;
   align-items: stretch;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 400;
   padding: 3px 5px;
   margin-bottom: 3px;
   border-radius: 2px;
@@ -626,7 +609,7 @@ html, body {
 
 .option-row.selected .opt-brief {
   color: #78350F;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .option-row:hover {
@@ -640,19 +623,19 @@ html, body {
 .option-row.selected {
   background: #FEF08A;
   color: #000;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .opt-num {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
+  font-weight: 400;
   color: #78350f;
   margin-right: 4px;
 }
 
 .opt-dots {
   color: rgba(15, 23, 42, 0.35);
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   font-size: 10px;
   letter-spacing: 1.5px;
   padding: 0 4px;
@@ -663,7 +646,7 @@ html, body {
 
 .opt-tag {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 400;
   color: #0F172A;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -677,7 +660,7 @@ html, body {
   justify-content: space-between;
   align-items: center;
   font-size: 8.5px;
-  font-weight: 600;
+  font-weight: 400;
   opacity: 0.7;
   letter-spacing: 0.04em;
 }
@@ -698,7 +681,7 @@ html, body {
 
 .field-lbl {
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: 400;
   color: #0F172A;
   white-space: nowrap;
 }
@@ -768,9 +751,9 @@ html, body {
   width: 100%;
   background: #0F172A;
   color: #FAF7EE;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 1px;
   padding: 6.5px 0;
   margin-top: 6px;
@@ -786,555 +769,6 @@ html, body {
 .dispatch-action-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* ==========================================================================
-   AUTHENTIC INK TYPOGRAPHY & PICA SPACING
-   ========================================================================== */
-.paper-header {
-  position: relative;
-  z-index: 4;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  border-bottom: 1.5px solid rgba(40, 35, 30, 0.22);
-  padding-bottom: 8px;
-  margin-bottom: 10px;
-}
-
-.paper-brand {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--paper-faint);
-  text-transform: uppercase;
-}
-
-.paper-step-badge {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--ribbon-red);
-}
-
-.paper-prompt-title {
-  position: relative;
-  z-index: 4;
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: #141210;
-  margin-bottom: 4px;
-}
-
-.paper-prompt-desc {
-  position: relative;
-  z-index: 4;
-  font-size: 10.5px;
-  line-height: 1.45;
-  color: #4e483f;
-  margin-bottom: 12px;
-  font-style: italic;
-}
-
-/* Live typewriter text output area with 1.5em line-height & pica tracking */
-.paper-typing-area {
-  position: relative;
-  z-index: 4;
-  flex: 1;
-  font-size: 14.5px;
-  line-height: 1.5em;
-  letter-spacing: 0.05em;
-  word-break: break-word;
-  white-space: pre-wrap;
-  color: var(--paper-ink);
-  opacity: 0.94;
-  text-shadow: 0 0 1px rgba(28, 26, 23, 0.4);
-  overflow-y: auto;
-  scroll-behavior: smooth;
-}
-
-.typed-char {
-  display: inline-block;
-  will-change: transform;
-}
-
-/* Vintage block cursor */
-.paper-cursor {
-  display: inline-block;
-  font-weight: 700;
-  color: var(--paper-ink);
-  opacity: 1;
-  animation: cursor-blink 0.9s steps(1, start) infinite;
-  margin-left: 2px;
-}
-
-@keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.paper-footer-prompt {
-  position: relative;
-  z-index: 5;
-  margin-top: auto;
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  color: #6e675b;
-  border-top: 1px dashed rgba(60, 50, 40, 0.25);
-  padding-top: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* Paper Footer Actions */
-.paper-footer-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-/* ==========================================================================
-   DYNAMIC WIZARD OPTIONS & STEP 4 BRIEF STYLING
-   ========================================================================== */
-.paper-options-container {
-  position: relative;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-  max-height: 240px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.option-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 3px;
-  border: 1px dashed rgba(120, 100, 75, 0.25);
-  background: rgba(255, 255, 255, 0.45);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  user-select: none;
-}
-
-.option-item:hover {
-  background: rgba(254, 249, 235, 0.85);
-  border-color: rgba(180, 140, 60, 0.5);
-}
-
-/* Vintage Yellow Highlighter Class: active selection */
-.option-item.bg-amber-100\/90,
-.option-item.active-selection {
-  background: rgba(254, 243, 199, 0.92) !important;
-  border: 1px solid rgba(217, 119, 6, 0.4) !important;
-  border-left: 3.5px solid #b45309 !important;
-  box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.22), 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.option-check {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
-  font-size: 11.5px;
-  color: #78350f;
-  line-height: 1.2;
-  flex-shrink: 0;
-}
-
-.option-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.option-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-
-.option-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #1a1714;
-  letter-spacing: 0.5px;
-}
-
-.option-tag {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  background: rgba(168, 35, 41, 0.12);
-  color: #a82329;
-  padding: 1px 6px;
-  border-radius: 2px;
-  border: 1px solid rgba(168, 35, 41, 0.25);
-  white-space: nowrap;
-}
-
-.option-subtitle {
-  font-size: 9px;
-  line-height: 1.35;
-  color: #5c5549;
-}
-
-/* Step 4 Brief Container */
-.paper-brief-container {
-  position: relative;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.brief-label {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: #4a4237;
-  text-transform: uppercase;
-}
-
-.brief-textarea {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px dashed rgba(120, 100, 75, 0.4);
-  border-radius: 3px;
-  padding: 10px 12px;
-  font-family: 'Courier Prime', 'Special Elite', monospace;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: #1a1714;
-  resize: none;
-  outline: none;
-  transition: all 0.2s ease;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.brief-textarea:focus {
-  background: rgba(254, 243, 199, 0.95);
-  border-color: #b45309;
-  box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* ==========================================================================
-   LEFT SPEC & RIGHT DOSSIER SHEETS (CORKBOARD / DESK PANELS)
-   ========================================================================== */
-.dossier-sheet {
-  position: absolute;
-  bottom: clamp(260px, 34vh, 390px);
-  max-height: calc(100vh - clamp(260px, 34vh, 390px) - 24px);
-  background: 
-    radial-gradient(ellipse at 50% 15%, #fdf9f1 0%, #f7f2e4 55%, #ece2cd 100%);
-  border: 1px solid rgba(165, 135, 85, 0.32);
-  border-radius: 4px;
-  padding: 18px 20px;
-  color: #1e1b17;
-  box-shadow: 
-    0 16px 45px rgba(0, 0, 0, 0.75),
-    0 4px 14px rgba(0, 0, 0, 0.35),
-    inset 0 0 45px rgba(185, 145, 80, 0.16);
-  z-index: 15;
-  pointer-events: auto;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.dossier-pin {
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 10px;
-  height: 10px;
-  background: radial-gradient(circle at 35% 35%, #ffd770 0%, #b8860b 60%, #5c4308 100%);
-  border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.8);
-  pointer-events: none;
-}
-
-.dossier-tag-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1.5px solid rgba(40, 35, 30, 0.22);
-  padding-bottom: 6px;
-  margin-bottom: 10px;
-}
-
-.dossier-tag {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: #787062;
-  text-transform: uppercase;
-}
-
-.dossier-mono-stamp {
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: #a82329;
-  font-family: 'Courier Prime', monospace;
-}
-
-/* Left Spec Panel */
-.left-spec-panel {
-  left: max(20px, 2.5vw);
-  width: clamp(260px, 20vw, 320px);
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
-  transform: translate3d(0, 0, 0);
-  opacity: 1;
-}
-
-.left-spec-panel.swapping {
-  transform: translate3d(-18px, 0, 0);
-  opacity: 0.2;
-}
-
-.spec-asset-wrapper {
-  width: 100%;
-  height: 140px;
-  background: #14161c;
-  border: 1px solid rgba(212, 175, 75, 0.3);
-  border-radius: 4px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 10px;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
-}
-
-.spec-asset-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.spec-asset-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  color: #141210;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-}
-
-.spec-asset-desc {
-  font-size: 9.5px;
-  line-height: 1.4;
-  color: #5c5549;
-  font-style: italic;
-}
-
-/* Right Dossier Panel */
-.right-dossier-panel {
-  right: max(20px, 2.5vw);
-  width: clamp(290px, 22.5vw, 360px);
-}
-
-.dossier-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.dossier-section-title {
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: #787062;
-  text-transform: uppercase;
-  margin-bottom: 3px;
-}
-
-.dossier-cap-name {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #141210;
-}
-
-.dossier-sla-badge {
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  background: rgba(168, 35, 41, 0.12);
-  color: #a82329;
-  padding: 2px 8px;
-  border-radius: 2px;
-  border: 1px solid rgba(168, 35, 41, 0.3);
-  white-space: nowrap;
-}
-
-.dossier-deliverables-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 12px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.dossier-deliverables-list li {
-  position: relative;
-  padding-left: 14px;
-  font-size: 9.5px;
-  line-height: 1.35;
-  color: #38342e;
-}
-
-.dossier-deliverables-list li::before {
-  content: "•";
-  position: absolute;
-  left: 2px;
-  color: #a82329;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.dossier-metrics-box {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px dashed rgba(120, 100, 75, 0.35);
-  border-radius: 3px;
-  padding: 8px 10px;
-  margin-bottom: 12px;
-}
-
-.dossier-metric-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 9.5px;
-}
-
-.dossier-metric-label {
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: #5c5549;
-}
-
-.dossier-metric-val {
-  font-weight: 700;
-  color: #1a1714;
-  font-family: 'Courier Prime', monospace;
-}
-
-/* Client Sign-off Section */
-.client-signoff-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-top: 1px dashed rgba(60, 50, 40, 0.25);
-  padding-top: 10px;
-  margin-top: auto;
-}
-
-.dossier-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dossier-field {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(120, 100, 75, 0.35);
-  border-radius: 3px;
-  padding: 6px 10px;
-  font-family: 'Courier Prime', monospace;
-  font-size: 10.5px;
-  color: #1a1714;
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.dossier-field:focus {
-  background: rgba(254, 243, 199, 0.95);
-  border-color: #b45309;
-  box-shadow: inset 0 0 6px rgba(245, 158, 11, 0.2);
-}
-
-.dossier-field.field-error {
-  border-color: #dc2626 !important;
-  background: #fef2f2 !important;
-  animation: shake 0.3s ease-in-out;
-}
-
-.dispatch-submit-btn {
-  background: #9b282d;
-  border: 1px solid #cf4249;
-  color: #ffffff;
-  font-family: 'Courier Prime', monospace;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(155, 40, 45, 0.45);
-  margin-top: 4px;
-}
-
-.dispatch-submit-btn:hover {
-  background: #b52f35;
-  box-shadow: 0 6px 16px rgba(181, 47, 53, 0.6);
-  transform: translateY(-1px);
-}
-
-.dispatch-submit-btn:active {
-  transform: translateY(1px);
-}
-
-.dispatch-submit-btn.is-loading {
-  background: #4b1619;
-  border-color: #7f1d1d;
-  cursor: wait;
-}
-
-.dispatch-pulse-led {
-  width: 6px;
-  height: 6px;
-  background: #ffb833;
-  border-radius: 50%;
-  box-shadow: 0 0 6px #ffb833;
-}
-
-/* Responsive adjustment for side panels */
-@media (max-width: 1280px) {
-  .left-spec-panel {
-    display: none;
-  }
-  .right-dossier-panel {
-    width: clamp(260px, 26vw, 310px);
-  }
-}
-
-@media (max-width: 1024px) {
-  .right-dossier-panel {
-    display: none;
-  }
 }
 
 /* ==========================================================================
@@ -1511,8 +945,8 @@ html, body {
     0 1px 2px rgba(0, 0, 0, 0.9);
 
   /* Monospace typography matching stamped typewriter slugs */
-  font-family: 'Courier Prime', 'Special Elite', monospace;
-  font-weight: 700;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
+  font-weight: 400;
   font-size: clamp(8.5px, 1vw, 11px);
   color: #1a1714;
   line-height: 1;
@@ -1567,7 +1001,7 @@ html, body {
 .shift-char {
   font-size: clamp(6px, 0.7vw, 7.8px);
   color: #383430;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
   margin-bottom: 0.5px;
 }
@@ -1576,47 +1010,53 @@ html, body {
 .main-char {
   font-size: clamp(8px, 0.9vw, 10.5px);
   color: #1a1714;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
 }
 
 .key-modifier {
   font-size: clamp(7px, 0.8vw, 9px);
   letter-spacing: 0.5px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
   text-transform: uppercase;
   pointer-events: none;
 }
 
-/* Mechanical Plunge Physics: Active Pressed State */
+/* Mechanical Plunge Physics: Active Pressed State (4px travel) */
 .keycap.is-pressed,
 .keycap.plunged,
 .keycap.depressed,
+.keycap.pressed,
+.keycap:active,
 .type-key.is-pressed,
 .type-key.plunged,
 .type-key.depressed,
+.type-key.pressed,
+.type-key:active,
 .typewriter-key.is-pressed,
 .typewriter-key.plunged,
-.typewriter-key.depressed {
-  transform: rotateX(15deg) translateY(2.2px) scale(0.96) !important;
-  filter: brightness(0.88) !important;
+.typewriter-key.depressed,
+.typewriter-key.pressed,
+.typewriter-key:active {
+  transform: rotateX(15deg) translateY(4px) scale(0.97) !important;
+  filter: brightness(0.85) !important;
   box-shadow: 
-    inset 0 2px 3px rgba(0, 0, 0, 0.75), 
-    0 0.8px 0 #141311, 
-    0 2px 3px rgba(0, 0, 0, 0.85) !important;
+    inset 0 3px 4px rgba(0, 0, 0, 0.8), 
+    0 0.5px 0 #141311, 
+    0 1.5px 2px rgba(0, 0, 0, 0.9) !important;
 }
 
 .keycap.is-pressed::before,
 .keycap.plunged::before {
-  height: 2px !important;
-  bottom: -2px !important;
+  height: 1px !important;
+  bottom: -1px !important;
 }
 
 /* Modifier oval keys: Tab, Backspace, Lock, Return */
-.keycap.key-utility-oval,
-.type-key.key-utility-oval,
-.typewriter-key.key-utility-oval {
+.keycap.wide-backspace,
+.keycap.wide-return,
+.keycap.key-utility-oval {
   aspect-ratio: auto;
   width: clamp(26px, 3.1vw, 34px);
   height: clamp(19px, 2.24vw, 25px);
@@ -1680,7 +1120,7 @@ html, body {
 .keycap.key-spacebar.is-pressed,
 .keycap.key-spacebar.plunged,
 .keycap.space-bar.is-pressed {
-  transform: rotateX(16deg) translateY(2.5px) !important;
+  transform: rotateX(16deg) translateY(4px) !important;
   box-shadow: 
     0 1px 0 #78716C,
     0 2px 4px rgba(0, 0, 0, 0.4),
@@ -1688,9 +1128,9 @@ html, body {
 }
 
 .spacebar-label {
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.18em;
   color: #44403C;
   opacity: 0.7;
@@ -1789,7 +1229,7 @@ html, body {
 
 .telegram-title {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 2px;
 }
 
@@ -1809,7 +1249,7 @@ html, body {
   color: var(--ribbon-red);
   padding: 6px 14px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 3px;
   text-transform: uppercase;
   transform: rotate(-8deg);
@@ -1822,26 +1262,36 @@ html, body {
   margin-bottom: 26px;
 }
 
-.ledger-item {
+.ledger-item,
+.ledger-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   border-left: 3px solid #1a1714;
   padding-left: 14px;
 }
 
-.ledger-label {
+.ledger-label,
+.ledger-key {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 1.5px;
   color: #73695c;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
-.ledger-value {
+.ledger-value,
+.ledger-val {
   font-size: 13.5px;
   line-height: 1.5;
   color: #12100d;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.ledger-val.highlight {
+  color: #9b282d;
 }
 
 .ledger-actions {
@@ -1882,14 +1332,6 @@ html, body {
 
 /* Responsive tweaks */
 @media (max-height: 720px) {
-  .paper-sheet {
-    bottom: clamp(230px, 31vh, 340px);
-    padding: 1.8rem 1.6rem 1.6rem 1.6rem;
-  }
-  .paper-typing-area {
-    font-size: 13px;
-    line-height: 1.45em;
-  }
   .typewriter-stage {
     max-height: 58vh;
   }
@@ -1927,10 +1369,11 @@ html, body {
   transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.full-frame-review.active ~ #ambient-banner,
-.full-frame-review.active + #ambient-banner {
+#app-container:has(.full-frame-review.active) .top-hud {
   display: none !important;
   opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .full-frame-review.active {
@@ -1945,16 +1388,16 @@ html, body {
 }
 
 .review-title {
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   font-size: clamp(14px, 1.6vw, 18px);
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.14em;
   color: #EDE8DE;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 .review-subtitle {
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   font-size: clamp(9px, 1vw, 11px);
   letter-spacing: 0.08em;
   color: #A8A29E;
@@ -1987,7 +1430,7 @@ html, body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   color: #1C1917;
   cursor: default;
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), z-index 0.28s ease;
@@ -2032,7 +1475,7 @@ html, body {
 
 .sheet-head-meta {
   font-size: clamp(8px, 0.8vw, 9.5px);
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.12em;
   color: #78716C;
   text-transform: uppercase;
@@ -2040,7 +1483,7 @@ html, body {
 
 .sheet-head-title {
   font-size: clamp(10.5px, 1.05vw, 13px);
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.06em;
   color: #0F172A;
   margin-top: 2px;
@@ -2075,7 +1518,7 @@ html, body {
   background: rgba(180, 83, 9, 0.08);
   border-left: 2px solid #D97706;
   color: #0F172A;
-  font-weight: 700;
+  font-weight: 400;
   opacity: 1;
 }
 
@@ -2086,7 +1529,7 @@ html, body {
 }
 
 .sheet-opt-box {
-  font-weight: 700;
+  font-weight: 400;
   color: #78716C;
   flex-shrink: 0;
 }
@@ -2103,7 +1546,7 @@ html, body {
   font-size: clamp(8px, 0.78vw, 9.5px);
   color: #78716C;
   margin-left: auto;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .sheet-opt-row.active-chosen .sheet-opt-val {
@@ -2136,9 +1579,9 @@ html, body {
   background: rgba(28, 25, 23, 0.04);
   border: 1px dashed rgba(68, 64, 60, 0.45);
   color: #44403C;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
   font-size: clamp(8px, 0.8vw, 9.5px);
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.05em;
   padding: 3px 6px;
   border-radius: 2px;
@@ -2165,7 +1608,7 @@ html, body {
 
 .sheet-field-label {
   font-size: clamp(7.5px, 0.75vw, 9px);
-  font-weight: 700;
+  font-weight: 400;
   color: #78716C;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2173,7 +1616,7 @@ html, body {
 
 .sheet-field-val {
   color: #0F172A;
-  font-weight: 700;
+  font-weight: 400;
   word-break: break-word;
 }
 
@@ -2192,7 +1635,7 @@ html, body {
 .sheet-stamp-box {
   border: 1.5px solid #991B1B;
   color: #991B1B;
-  font-weight: 700;
+  font-weight: 400;
   font-size: clamp(8px, 0.8vw, 9.5px);
   letter-spacing: 0.1em;
   text-align: center;
@@ -2223,8 +1666,8 @@ html, body {
 }
 
 .review-action-btn {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Playfair Display', 'Cormorant Garamond', 'Fraunces', 'Playpen Sans', 'Comic Relief', serif, sans-serif;
+  font-weight: 400;
   font-size: clamp(11px, 1.1vw, 13px);
   letter-spacing: 0.08em;
   padding: 10px 22px;
@@ -2273,8 +1716,8 @@ html, body {
   transform: translate(-50%, -50%) rotate(-12deg) scale(0.6);
   border: 3px solid #DC2626;
   color: #DC2626;
-  font-family: 'Special Elite', 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Fraunces', 'Cormorant Garamond', serif;
+  font-weight: 400;
   font-size: clamp(14px, 1.8vw, 20px);
   letter-spacing: 0.18em;
   padding: 6px 14px;
@@ -2288,6 +1731,10 @@ html, body {
 .transmitted-stamp-overlay.stamped {
   opacity: 1;
   transform: translate(-50%, -50%) rotate(-12deg) scale(1);
+}
+
+.ledger-confirmation-notice {
+  font-family: 'Playpen Sans', 'Comic Relief', sans-serif;
 }
 
 @media (max-width: 900px) {

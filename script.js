@@ -10,30 +10,36 @@
   'use strict';
 
   // ==========================================================================
-  // 1. PROCEDURAL WEB AUDIO SYNTHESIZER (SAFARI / CHROME RESILIENT)
+  // 1. PROCEDURAL & PCM MECHANICAL AUDIO ENGINE (CHROME / SAFARI / MOBILE RESILIENT)
+  // Dedicated Assets: key003.wav, return005.wav, paper_feed.wav
+  // Zero-latency memory Blob pool + Web Audio API buffer playback + Autoplay unlock
   // ==========================================================================
   const AudioEngine = {
     ctx: null,
     masterGain: null,
     soundEnabled: true,
     unlocked: false,
-    activeAudios: new Set(),
     buffers: {
       key: null,
       return: null,
       paperFeed: null
     },
-    dataUris: {
+    blobUrls: {
       key: null,
       return: null,
       paperFeed: null
     },
-    loadingStarted: false,
-
-    async unlock() {
-      this.init();
-      this.unlocked = true;
+    audioPools: {
+      key: [],
+      return: [],
+      paperFeed: []
     },
+    poolIndices: {
+      key: 0,
+      return: 0,
+      paperFeed: 0
+    },
+    loadingStarted: false,
 
     init() {
       if (!this.ctx) {
@@ -41,98 +47,147 @@
         if (AudioContextClass) {
           try {
             this.ctx = new AudioContextClass();
-
-            // Dynamics compressor to maximize perceptual loudness, clarity & punch without clipping
-            this.compressor = this.ctx.createDynamicsCompressor();
-            this.compressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
-            this.compressor.knee.setValueAtTime(8, this.ctx.currentTime);
-            this.compressor.ratio.setValueAtTime(4, this.ctx.currentTime);
-            this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
-            this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
-
-            // Master Gain: Boost output to 2.2x for loud, authentic mechanical audio
+            // Direct master gain without ducking compressor for loud, authentic mechanical clacks
             this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.setValueAtTime(2.2, this.ctx.currentTime);
-
-            this.masterGain.connect(this.compressor);
-            this.compressor.connect(this.ctx.destination);
+            this.masterGain.gain.setValueAtTime(1.8, this.ctx.currentTime);
+            this.masterGain.connect(this.ctx.destination);
           } catch (_) {}
         }
       }
+
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume().catch(() => {});
       }
+
       if (!this.loadingStarted) {
         this.loadAudioAssets();
       }
     },
 
+    unlock() {
+      this.init();
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      if (this.ctx && !this.unlocked) {
+        try {
+          // Play a 1-sample silent buffer to unlock the audio hardware clock immediately
+          const silentBuf = this.ctx.createBuffer(1, 1, 22050);
+          const silentSrc = this.ctx.createBufferSource();
+          silentSrc.buffer = silentBuf;
+          silentSrc.connect(this.ctx.destination);
+          silentSrc.start(0);
+          this.unlocked = true;
+        } catch (_) {}
+      }
+    },
+
     loadAudioAssets() {
+      if (this.loadingStarted) return;
       this.loadingStarted = true;
 
-      // 1. FAST-PATH: Decode embedded base64 audio data if present (Zero CORS, Zero File:// delays)
-      if (window.TYPEWRITER_AUDIO_DATA) {
-        const d = window.TYPEWRITER_AUDIO_DATA;
-
-        const base64ToArrayBuffer = (b64) => {
-          try {
-            const bin = window.atob(b64);
-            const len = bin.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
-            return bytes.buffer;
-          } catch (_) {
-            return null;
-          }
-        };
-
-        const decodeBase64ToBuffer = async (b64) => {
-          if (!b64 || !this.ctx) return null;
-          const ab = base64ToArrayBuffer(b64);
-          if (!ab) return null;
-          try {
-            return await this.ctx.decodeAudioData(ab);
-          } catch (_) {
-            return null;
-          }
-        };
-
-        if (d.key) {
-          decodeBase64ToBuffer(d.key).then(b => { if (b) this.buffers.key = b; });
-          this.dataUris.key = 'data:audio/wav;base64,' + d.key;
-        }
-        if (d.return) {
-          decodeBase64ToBuffer(d.return).then(b => { if (b) this.buffers.return = b; });
-          this.dataUris.return = 'data:audio/wav;base64,' + d.return;
-        }
-        if (d.paperFeed) {
-          decodeBase64ToBuffer(d.paperFeed).then(b => { if (b) this.buffers.paperFeed = b; });
-          this.dataUris.paperFeed = 'data:audio/wav;base64,' + d.paperFeed;
-        }
-      }
-
-      // 2. NETWORK/LOCAL FILE BACKUP FETCH
-      const soundFiles = {
-        key: 'assets/sounds/key003.wav',
-        return: 'assets/sounds/return005.wav',
-        paperFeed: 'assets/sounds/paper_feed.wav'
-      };
-
-      const loadBufferFromUrl = async (url) => {
+      const base64ToArrayBuffer = (b64) => {
         try {
-          const res = await fetch(url);
-          if (!res.ok) return null;
-          const arrayBuffer = await res.arrayBuffer();
-          if (!this.ctx) return null;
-          return await this.ctx.decodeAudioData(arrayBuffer);
+          const bin = window.atob(b64);
+          const len = bin.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+          return bytes.buffer;
         } catch (_) {
           return null;
         }
       };
 
-      if (!this.buffers.key) loadBufferFromUrl(soundFiles.key).then(b => { if (b) this.buffers.key = b; });
-      if (!this.buffers.return) loadBufferFromUrl(soundFiles.return).then(b => { if (b) this.buffers.return = b; });
-      if (!this.buffers.paperFeed) loadBufferFromUrl(soundFiles.paperFeed).then(b => { if (b) this.buffers.paperFeed = b; });
+      const base64ToBlobUrl = (b64) => {
+        try {
+          const bin = window.atob(b64);
+          const len = bin.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+          const blob = new Blob([bytes], { type: 'audio/wav' });
+          return URL.createObjectURL(blob);
+        } catch (_) {
+          return null;
+        }
+      };
+
+      // 1. FAST PATH: Synchronous Blob URL + Audio Pool creation from embedded base64 data
+      if (window.TYPEWRITER_AUDIO_DATA) {
+        const d = window.TYPEWRITER_AUDIO_DATA;
+        ['key', 'return', 'paperFeed'].forEach((type) => {
+          const b64 = d[type];
+          if (!b64) return;
+
+          // Create memory Blob URL (Zero-latency instant playback)
+          const blobUrl = base64ToBlobUrl(b64);
+          if (blobUrl) {
+            this.blobUrls[type] = blobUrl;
+            const poolSize = (type === 'key') ? 12 : 4;
+            const pool = [];
+            for (let i = 0; i < poolSize; i++) {
+              const a = new Audio(blobUrl);
+              a.preload = 'auto';
+              pool.push(a);
+            }
+            this.audioPools[type] = pool;
+          }
+
+          // Asynchronously decode into Web Audio Buffer for microsecond precision & pitch randomization
+          const ab = base64ToArrayBuffer(b64);
+          if (ab) {
+            this.decodeBuffer(ab, (buf) => {
+              if (buf) this.buffers[type] = buf;
+            });
+          }
+        });
+      }
+
+      // 2. NETWORK / LOCAL FILE PATHS BACKUP FETCH
+      const soundFiles = {
+        key: ['assets/sounds/key003.wav', 'public/assets/sounds/key003.wav'],
+        return: ['assets/sounds/return005.wav', 'public/assets/sounds/return005.wav'],
+        paperFeed: ['assets/sounds/paper_feed.wav', 'public/assets/sounds/paper_feed.wav']
+      };
+
+      Object.keys(soundFiles).forEach((type) => {
+        if (!this.buffers[type]) {
+          const tryFetch = (urls) => {
+            if (!urls || !urls.length) return;
+            const url = urls[0];
+            fetch(url)
+              .then(res => res.ok ? res.arrayBuffer() : null)
+              .then(ab => {
+                if (ab) {
+                  this.decodeBuffer(ab, (buf) => {
+                    if (buf && !this.buffers[type]) this.buffers[type] = buf;
+                  });
+                } else {
+                  tryFetch(urls.slice(1));
+                }
+              })
+              .catch(() => tryFetch(urls.slice(1)));
+          };
+          tryFetch(soundFiles[type]);
+        }
+      });
+    },
+
+    decodeBuffer(ab, onSuccess) {
+      if (!this.ctx || !ab) return;
+      try {
+        const copy = ab.slice(0); // slice(0) avoids detached ArrayBuffer issues
+        let completed = false;
+        const cb = (buf) => {
+          if (!completed && buf) {
+            completed = true;
+            onSuccess(buf);
+          }
+        };
+        const p = this.ctx.decodeAudioData(copy, cb, () => {});
+        if (p && typeof p.then === 'function') {
+          p.then(cb).catch(() => {});
+        }
+      } catch (_) {}
     },
 
     toggleSound() {
@@ -140,80 +195,79 @@
       return this.soundEnabled;
     },
 
-    playAudio(urlOrDataUri, buffer, { pitch = 1.0, volume = 1.0 } = {}) {
+    playAudio(type, { pitch = 1.0, volume = 1.0 } = {}) {
       if (!this.soundEnabled) return false;
+      this.unlock();
 
-      // Ensure AudioContext is actively running
-      if (this.ctx && this.ctx.state === 'suspended') {
-        this.ctx.resume().catch(() => {});
-      }
-
-      // Method 1: Web Audio Buffer (Zero latency + dynamic pitch)
-      if (buffer && this.ctx) {
-        if (this.playBuffer(buffer, { pitch, volume })) {
-          return true;
-        }
-      }
-
-      // Method 2: HTMLAudioElement with persistent Set reference (prevents GC dropouts)
-      if (urlOrDataUri) {
+      // Tier 1: Web Audio Buffer (Zero latency, full dynamic headroom, pitch variation)
+      const buffer = this.buffers[type];
+      if (buffer && this.ctx && this.ctx.state === 'running') {
         try {
-          const audio = new Audio(urlOrDataUri);
-          audio.volume = Math.max(0, Math.min(1, volume));
-          this.activeAudios.add(audio);
-          audio.onended = () => this.activeAudios.delete(audio);
-          audio.onerror = () => this.activeAudios.delete(audio);
-          const playPromise = audio.play();
-          if (playPromise && playPromise.catch) {
-            playPromise.catch(() => {
-              this.activeAudios.delete(audio);
-            });
+          const src = this.ctx.createBufferSource();
+          src.buffer = buffer;
+          src.playbackRate.setValueAtTime(pitch, this.ctx.currentTime);
+
+          const gainNode = this.ctx.createGain();
+          gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
+
+          src.connect(gainNode);
+          gainNode.connect(this.masterGain || this.ctx.destination);
+          src.start(0);
+          return true;
+        } catch (_) {}
+      }
+
+      // Tier 2: Instant Preloaded HTML5 Audio Pool (Fast Blob URL fallback)
+      const pool = this.audioPools[type];
+      if (pool && pool.length) {
+        try {
+          const idx = this.poolIndices[type] % pool.length;
+          this.poolIndices[type]++;
+          const audio = pool[idx];
+          audio.volume = Math.max(0, Math.min(1.0, volume));
+          audio.currentTime = 0;
+          const p = audio.play();
+          if (p && typeof p.catch === 'function') {
+            p.catch(() => {});
           }
           return true;
-        } catch (_) {
-          return false;
-        }
+        } catch (_) {}
       }
+
+      // Tier 3: Standalone Audio Element with local sound file path or Blob URL
+      const path = (window.TYPEWRITER_AUDIO_PATHS && window.TYPEWRITER_AUDIO_PATHS[type]) || ('assets/sounds/' + (type === 'key' ? 'key003.wav' : type === 'return' ? 'return005.wav' : 'paper_feed.wav'));
+      const srcUrl = this.blobUrls[type] || path;
+      if (srcUrl) {
+        try {
+          const audio = new Audio(srcUrl);
+          audio.volume = Math.max(0, Math.min(1.0, volume));
+          const p = audio.play();
+          if (p && typeof p.catch === 'function') {
+            p.catch(() => {});
+          }
+          return true;
+        } catch (_) {}
+      }
+
       return false;
     },
 
-    playBuffer(buffer, { pitch = 1.0, volume = 1.0 } = {}) {
-      if (!this.ctx || !buffer || !this.soundEnabled) return false;
-      try {
-        const src = this.ctx.createBufferSource();
-        src.buffer = buffer;
-        src.playbackRate.setValueAtTime(pitch, this.ctx.currentTime);
-
-        const gainNode = this.ctx.createGain();
-        gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
-
-        src.connect(gainNode);
-        gainNode.connect(this.masterGain || this.ctx.destination);
-        src.start(0);
-        return true;
-      } catch (_) {
-        return false;
-      }
-    },
-
-    // 1. KEY003.WAV: Used for alphabet keys, backspace button, and enter button when navigating options
+    // 1. KEY003.WAV: Used for alphabet keys, numbers, space, backspace, and arrow navigation
     playKeySound() {
-      this.init();
       if (!this.soundEnabled) return;
-      const dataUri = (this.dataUris && this.dataUris.key) || 'assets/sounds/key003.wav';
+      this.unlock();
       const pitch = 0.98 + (Math.random() * 0.04);
-      const played = this.playAudio(dataUri, this.buffers.key, { pitch, volume: 1.0 });
+      const played = this.playAudio('key', { pitch, volume: 1.0 });
       if (!played) {
         this.synthKeyClack(950);
       }
     },
 
-    // 2. RETURN005.WAV: Used for enter button ONLY when turning the page
+    // 2. RETURN005.WAV: Used for enter button when confirming choices / turning page
     playReturnSound() {
-      this.init();
       if (!this.soundEnabled) return;
-      const dataUri = (this.dataUris && this.dataUris.return) || 'assets/sounds/return005.wav';
-      const played = this.playAudio(dataUri, this.buffers.return, { pitch: 1.0, volume: 1.0 });
+      this.unlock();
+      const played = this.playAudio('return', { pitch: 1.0, volume: 1.0 });
       if (!played) {
         this.synthReturnLever();
       }
@@ -221,10 +275,9 @@
 
     // 3. PAPER_FEED.WAV: Used for the page turning sound
     playPaperRollSound() {
-      this.init();
       if (!this.soundEnabled) return;
-      const dataUri = (this.dataUris && this.dataUris.paperFeed) || 'assets/sounds/paper_feed.wav';
-      const played = this.playAudio(dataUri, this.buffers.paperFeed, { pitch: 1.0, volume: 1.0 });
+      this.unlock();
+      const played = this.playAudio('paperFeed', { pitch: 1.0, volume: 1.0 });
       if (!played) {
         this.synthPaperRoll();
       }
@@ -232,6 +285,66 @@
 
     playPaperSlideSound() {
       this.playPaperRollSound();
+    },
+
+    playLampSwitchSound() {
+      this.init();
+      if (!this.soundEnabled) return;
+      if (!this.ctx) return;
+      try {
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+        const now = Math.max(this.ctx.currentTime, 0.01) + 0.002;
+
+        // 1. Initial chain links rustle (metallic beaded chain sliding through socket eyelet)
+        const rattleDur = 0.06;
+        const rattleBuf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * rattleDur), this.ctx.sampleRate);
+        const rData = rattleBuf.getChannelData(0);
+        for (let i = 0; i < rData.length; i++) rData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (rData.length * 0.4));
+        const rattleSrc = this.ctx.createBufferSource();
+        rattleSrc.buffer = rattleBuf;
+        const rFilter = this.ctx.createBiquadFilter();
+        rFilter.type = 'bandpass';
+        rFilter.frequency.setValueAtTime(3200, now);
+        rFilter.Q.setValueAtTime(4.0, now);
+        const rGain = this.ctx.createGain();
+        rGain.gain.setValueAtTime(0.22, now);
+        rGain.gain.exponentialRampToValueAtTime(0.001, now + rattleDur);
+        rattleSrc.connect(rFilter);
+        rFilter.connect(rGain);
+        rGain.connect(this.masterGain || this.ctx.destination);
+        rattleSrc.start(now);
+
+        // 2. Dual-action mechanical switch snap ("click-snick")
+        const clickTimes = [now + 0.045, now + 0.075];
+        clickTimes.forEach((t, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = idx === 0 ? 'triangle' : 'square';
+          osc.frequency.setValueAtTime(idx === 0 ? 1450 : 880, t);
+          osc.frequency.exponentialRampToValueAtTime(idx === 0 ? 280 : 180, t + 0.035);
+          gain.gain.setValueAtTime(idx === 0 ? 0.45 : 0.65, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.038);
+          osc.connect(gain);
+          gain.connect(this.masterGain || this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.04);
+        });
+
+        // 3. Resonant brass bell/lamp housing acoustic body ping
+        const ringOsc = this.ctx.createOscillator();
+        const ringGain = this.ctx.createGain();
+        ringOsc.type = 'sine';
+        ringOsc.frequency.setValueAtTime(1150, now + 0.075);
+        ringOsc.frequency.exponentialRampToValueAtTime(1120, now + 0.22);
+        ringGain.gain.setValueAtTime(0.18, now + 0.075);
+        ringGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+        ringOsc.connect(ringGain);
+        ringGain.connect(this.masterGain || this.ctx.destination);
+        ringOsc.start(now + 0.075);
+        ringOsc.stop(now + 0.25);
+      } catch (_) {}
     },
 
     playRatchetClick() {},
@@ -326,9 +439,14 @@
     }
   };
 
-  // Global user gesture unlock for modern browsers
-  ['click', 'keydown', 'touchstart'].forEach(evt => {
-    window.addEventListener(evt, () => AudioEngine.init(), { once: true });
+  // Global user gesture unlock for modern browsers (captures user interaction immediately)
+  const unlockEvents = ['pointerdown', 'mousedown', 'keydown', 'touchstart', 'click'];
+  const globalUnlock = () => {
+    AudioEngine.unlock();
+  };
+  unlockEvents.forEach((evt) => {
+    window.addEventListener(evt, globalUnlock, { capture: true, passive: true });
+    document.addEventListener(evt, globalUnlock, { capture: true, passive: true });
   });
 
   window.AudioEngine = AudioEngine;
@@ -339,125 +457,114 @@
   // ==========================================================================
   const WIZARD_SCHEMA = {
     1: {
-      tag: 'WHAT ARE WE BUILDING?',
-      title: 'What Are We Building?',
-      ref: 'SYS-01 // GOAL',
+      tag: '01 // SYSTEM & WORKFLOW SCOPE',
+      title: 'System & Workflow Scope',
+      ref: 'SYS-01 // SCOPE',
       stepLabel: '[ 01 / 04 ]',
-      directive: 'CHOOSE YOUR PRIMARY GOAL:',
+      directive: 'Define the systems and repetitive processes you need connected.',
+      fieldLabel: 'PRIMARY OBJECTIVE',
       footerStamp: 'PRESS [1-4] OR CLICK // ENTER ↵ TO CONFIRM',
       options: [
         {
           num: 1,
-          id: 'web_app',
-          label: 'Modern Website or Web App',
-          tag: 'WEB/APP',
-          brief: 'Fast, clean websites and web platforms built to convert visitors into clients.'
+          id: 'crm_pipeline',
+          label: 'CRM & Pipeline Automation',
+          tag: 'CRM/PIPELINE',
+          brief: 'Connect your CRM, lead capture pipeline, and qualification stages automatically.'
         },
         {
           num: 2,
-          id: 'automation',
-          label: 'Business Workflow Automation',
-          tag: 'AUTONOMOUS',
-          brief: 'Connect your tools (CRMs, Google Sheets, email) so tasks run on autopilot.'
+          id: 'ops_doc_proc',
+          label: 'Internal Ops & Document Processing',
+          tag: 'INTERNAL/OPS',
+          brief: 'Automate invoice routing, document parsing, approvals, and internal team tasks.'
         },
         {
           num: 3,
-          id: 'lead_bot',
-          label: 'WhatsApp & Lead Capture Bot',
-          tag: 'BOT/24-7',
-          brief: 'Automatically reply to incoming customer leads and book meetings 24/7.'
+          id: 'client_onboarding',
+          label: 'Client Onboarding Workflows',
+          tag: 'ONBOARDING',
+          brief: 'Streamline contract execution, client portal setups, provisioning, and handoffs.'
         },
         {
           num: 4,
-          id: 'custom_software',
-          label: 'Custom Software Solution',
-          tag: 'BESPOKE',
-          brief: 'Tailor-made internal tools, dashboards, or custom database systems.'
+          id: 'custom_api_sync',
+          label: 'Custom API Integration & Data Sync',
+          tag: 'CUSTOM/API',
+          brief: 'Bi-directional real-time data sync across databases, legacy tools, and third-party APIs.'
         }
       ]
     },
     2: {
-      tag: 'WHEN DO YOU NEED IT?',
-      title: 'When Do You Need It?',
-      ref: 'CAD-02 // TIMELINE',
+      tag: '02 // TIMELINE & TARGET DEPLOYMENT',
+      title: 'Timeline & Target Deployment',
+      ref: 'CAD-02 // VELOCITY',
       stepLabel: '[ 02 / 04 ]',
-      directive: 'SELECT YOUR TARGET TIMELINE:',
+      directive: 'When does this system need to be live in production?',
+      fieldLabel: 'DEPLOYMENT TIMELINE',
       footerStamp: 'SELECTION SAVED // PRESS ENTER ↵ TO ROLL',
       options: [
         {
           num: 1,
-          id: 'urgent',
-          label: 'Urgent Delivery (< 2 Weeks)',
+          id: 'immediate',
+          label: 'Immediate (Within 2 weeks) — Production blocker',
           tag: '< 2 WEEKS',
-          brief: 'Rapid sprint to launch an MVP or fix a critical business bottleneck fast.'
+          brief: 'Emergency rapid sprint to eliminate critical manual bottlenecks or unblock revenue.'
         },
         {
           num: 2,
-          id: 'standard',
-          label: 'Standard Rollout (3 to 5 Weeks)',
-          tag: '3-5 WEEKS',
-          brief: 'Steady build with full design reviews, feedback cycles, and testing.'
+          id: 'targeted',
+          label: 'Targeted (3–6 weeks) — Planned initiative',
+          tag: '3-6 WEEKS',
+          brief: 'Structured deployment sprint with technical reviews, staging iterations, and user testing.'
         },
         {
           num: 3,
           id: 'flexible',
-          label: 'Flexible / Long-Term Project',
-          tag: 'LONG-TERM',
-          brief: 'Phased development milestones over several months or an ongoing retainer.'
-        },
-        {
-          num: 4,
-          id: 'planning',
-          label: 'Still Planning / No Fixed Date',
-          tag: 'EXPLORING',
-          brief: 'Exploring feasibility and getting expert technical advice first.'
+          label: 'Flexible (Q1/Q2 roadmap) — Evaluating feasibility',
+          tag: 'ROADMAP',
+          brief: 'Architecture planning, technical feasibility study, or staged milestones over coming quarters.'
         }
       ]
     },
     3: {
-      tag: 'PLANNED INVESTMENT',
-      title: 'Planned Investment',
-      ref: 'CAP-03 // BUDGET',
+      tag: '03 // SCOPE & BUDGET ALLOCATION',
+      title: 'Scope & Budget Allocation',
+      ref: 'CAP-03 // ALLOCATION',
       stepLabel: '[ 03 / 04 ]',
-      directive: 'CHOOSE YOUR ESTIMATED BUDGET:',
+      directive: 'Help us match the architecture complexity to your investment tier.',
+      fieldLabel: 'INVESTMENT TIER',
       footerStamp: 'SELECTION SAVED // PRESS ENTER ↵ TO ROLL',
       options: [
         {
           num: 1,
-          id: 'tier_starter',
-          label: '₹25,000 – ₹50,000 (Starter)',
-          tag: '₹25K-₹50K',
-          brief: 'Ideal for simple automations, landing pages, or small single-purpose tools.'
+          id: 'sprint_pilot',
+          label: 'Sprint Pilot ($2k – $5k) — Single workflow or MVP integration',
+          tag: '$2K-$5K',
+          brief: 'Targeted single workflow automation or proof-of-concept pipeline (< 1,000 tasks/mo).'
         },
         {
           num: 2,
-          id: 'tier_growth',
-          label: '₹50,000 – ₹1,20,000 (Growth)',
-          tag: '₹50K-₹1.2L',
-          brief: 'Complete dynamic web apps, multi-step pipelines, or customized bot flows.'
+          id: 'standard_prod',
+          label: 'Standard Production ($5k – $15k) — End-to-end department automation',
+          tag: '$5K-$15K',
+          brief: 'Multi-step departmental workflows, webhook routing, error resilience (1,000 – 25,000 tasks/mo).'
         },
         {
           num: 3,
-          id: 'tier_scale',
-          label: '₹1,20,000+ (Full Scale)',
-          tag: '₹1.2L+',
-          brief: 'Comprehensive end-to-end platforms, custom databases, and ongoing support.'
-        },
-        {
-          num: 4,
-          id: 'tier_discuss',
-          label: 'Let’s Discuss Options First',
-          tag: 'CUSTOM',
-          brief: 'Scope the technical requirements together before fixing a price tag.'
+          id: 'enterprise_sys',
+          label: 'Enterprise System ($15k+) — Multi-platform architecture & custom APIs',
+          tag: '$15K+',
+          brief: 'High-availability multi-cloud architecture, custom microservices, SLA monitoring (25,000+ tasks/mo).'
         }
       ]
     },
     4: {
-      tag: 'YOUR DETAILS & NOTES',
-      title: 'Your Details & Notes',
+      tag: '04 // DISPATCH & DELIVERY DETAILS',
+      title: 'Dispatch & Delivery Details',
       ref: 'LEDGER-04 // CONTACT',
       stepLabel: '[ 04 / 04 ]',
-      directive: 'WHERE SHOULD WE SEND THE SCOPE?',
+      directive: 'Where should our technical lead send the architecture audit and feasibility report?',
       footerStamp: 'REVIEW SUMMARY BEFORE SENDING ↵'
     }
   };
@@ -548,8 +655,8 @@
       this.paperContent = document.getElementById('paperContent');
       this.carriageLever = document.getElementById('carriage-lever');
       this.hiddenInput = document.getElementById('hidden-input');
-      this.soundToggleBtn = document.getElementById('soundToggle');
-      this.ambientBanner = document.getElementById('ambient-banner');
+      this.lightToggleBtn = document.getElementById('glassLightToggle');
+      this.lampLit = true;
       this.summaryModal = document.getElementById('summary-modal');
       this.fullFrameReview = document.getElementById('full-frame-review');
       this.reviewConfirmBtn = document.getElementById('review-confirm-btn');
@@ -578,9 +685,6 @@
 
     engageMechanicalTerminal() {
       this.sound.init();
-      if (this.ambientBanner) {
-        this.ambientBanner.classList.add('hidden');
-      }
     }
 
     build3DKeyboard() {
@@ -695,20 +799,30 @@
         });
       }
 
-      if (this.soundToggleBtn) {
-        this.soundToggleBtn.addEventListener('click', () => {
-          this.engageMechanicalTerminal();
-          const active = this.sound.toggleSound();
-          const led = this.soundToggleBtn.querySelector('.hud-led');
-          const text = this.soundToggleBtn.querySelector('.hud-text');
-          if (active) {
-            this.soundToggleBtn.classList.remove('off');
-            if (led) led.style.background = '#22C55E';
-            if (text) text.textContent = 'SOUND: ON';
-          } else {
-            this.soundToggleBtn.classList.add('off');
-            if (led) led.style.background = '#EF4444';
-            if (text) text.textContent = 'SOUND: OFF';
+      if (this.lightToggleBtn) {
+        const toggleLight = () => {
+          this.lampLit = !this.lampLit;
+          document.body.classList.toggle('lamp-off', !this.lampLit);
+          this.lightToggleBtn.classList.toggle('is-on', this.lampLit);
+          this.lightToggleBtn.classList.toggle('is-off', !this.lampLit);
+          this.lightToggleBtn.setAttribute('aria-checked', this.lampLit.toString());
+          if (this.sound && this.sound.playLampSwitchSound) {
+            this.sound.playLampSwitchSound();
+          }
+          if (typeof navigator.vibrate === 'function') {
+            try { navigator.vibrate(18); } catch (_) {}
+          }
+        };
+
+        this.lightToggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleLight();
+        });
+
+        this.lightToggleBtn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleLight();
           }
         });
       }
@@ -964,15 +1078,6 @@
           if (boxEl) boxEl.textContent = '[   ]';
         }
       });
-
-      const promptEl = document.getElementById('paperPrompt');
-      if (promptEl) {
-        if (this.selectedOption !== null) {
-          promptEl.textContent = '[ ENTER ↵ TO CONFIRM ]';
-        } else {
-          promptEl.textContent = '[ SELECT: 1-4 / ARROWS + ENTER ]';
-        }
-      }
     }
 
     executePaperAdvance() {
@@ -1006,12 +1111,21 @@
       if (this.isRolling) return;
       this.isRolling = true;
 
+      // Mechanical Platen Carriage Recoil
+      const stageViewport = document.querySelector('.stage-viewport');
+      if (stageViewport) {
+        stageViewport.classList.remove('carriage-recoil');
+        void stageViewport.offsetWidth;
+        stageViewport.classList.add('carriage-recoil');
+        setTimeout(() => stageViewport.classList.remove('carriage-recoil'), 460);
+      }
+
       this.sound.playPaperRollSound();
 
       this.paperScrollY = 0;
       if (this.typewriterPaper) {
         this.typewriterPaper.style.transform = '';
-        this.typewriterPaper.classList.remove('paper-resting', 'paper-loading-in');
+        this.typewriterPaper.classList.remove('paper-resting', 'paper-loading-in', 'paper-feed-shudder');
         this.typewriterPaper.classList.add('paper-ejecting');
       }
 
@@ -1026,7 +1140,10 @@
           this.typewriterPaper.classList.add('paper-loading-in');
           void this.typewriterPaper.offsetWidth;
           this.typewriterPaper.classList.remove('paper-loading-in');
-          this.typewriterPaper.classList.add('paper-resting');
+          this.typewriterPaper.classList.add('paper-resting', 'paper-feed-shudder');
+          setTimeout(() => {
+            if (this.typewriterPaper) this.typewriterPaper.classList.remove('paper-feed-shudder');
+          }, 460);
         }
 
         this.isRolling = false;
@@ -1037,12 +1154,22 @@
       if (this.isRolling || WIZARD_STATE.step <= 1) return;
 
       this.isRolling = true;
+
+      // Mechanical Platen Carriage Recoil
+      const stageViewport = document.querySelector('.stage-viewport');
+      if (stageViewport) {
+        stageViewport.classList.remove('carriage-recoil');
+        void stageViewport.offsetWidth;
+        stageViewport.classList.add('carriage-recoil');
+        setTimeout(() => stageViewport.classList.remove('carriage-recoil'), 460);
+      }
+
       this.sound.playPaperRollSound();
 
       this.paperScrollY = 0;
       if (this.typewriterPaper) {
         this.typewriterPaper.style.transform = '';
-        this.typewriterPaper.classList.remove('paper-resting', 'paper-loading-in');
+        this.typewriterPaper.classList.remove('paper-resting', 'paper-loading-in', 'paper-feed-shudder');
         this.typewriterPaper.classList.add('paper-ejecting');
       }
 
@@ -1057,7 +1184,10 @@
           this.typewriterPaper.classList.add('paper-loading-in');
           void this.typewriterPaper.offsetWidth;
           this.typewriterPaper.classList.remove('paper-loading-in');
-          this.typewriterPaper.classList.add('paper-resting');
+          this.typewriterPaper.classList.add('paper-resting', 'paper-feed-shudder');
+          setTimeout(() => {
+            if (this.typewriterPaper) this.typewriterPaper.classList.remove('paper-feed-shudder');
+          }, 460);
         }
 
         this.isRolling = false;
@@ -1112,7 +1242,7 @@
         if (step === 3) this.selectedOption = WIZARD_STATE.capital;
 
       } else if (step === 4) {
-        // Step 4: Your Details & Notes
+        // Step 4: 04 // DISPATCH & DELIVERY DETAILS
         const schema = WIZARD_SCHEMA[4];
 
         html += '<div class="sheet-meta-bar typewriter-ink">';
@@ -1125,23 +1255,23 @@
         html += '<div class="paper-form-box typewriter-ink">';
 
         html += '  <div class="field-row">';
-        html += '    <span class="field-lbl">[+] Your Name / Company:</span>';
-        html += '    <input id="leadName" class="ledger-line typewriter-ink" placeholder="e.g. Rahul Sharma *" value="' + (WIZARD_STATE.clientName || '') + '" autocomplete="name" />';
+        html += '    <span class="field-lbl">[+] FULL NAME:</span>';
+        html += '    <input id="leadName" class="ledger-line typewriter-ink" placeholder="First &amp; Last Name *" value="' + (WIZARD_STATE.clientName || '') + '" autocomplete="name" />';
         html += '  </div>';
 
         html += '  <div class="field-row">';
-        html += '    <span class="field-lbl">[+] Work Email:</span>';
-        html += '    <input id="leadEmail" type="email" class="ledger-line typewriter-ink" placeholder="e.g. rahul@company.com *" value="' + (WIZARD_STATE.clientEmail || '') + '" autocomplete="email" />';
+        html += '    <span class="field-lbl">[+] WORK EMAIL:</span>';
+        html += '    <input id="leadEmail" type="email" class="ledger-line typewriter-ink" placeholder="name@company.com *" value="' + (WIZARD_STATE.clientEmail || '') + '" autocomplete="email" />';
         html += '  </div>';
 
         html += '  <div class="field-row">';
-        html += '    <span class="field-lbl">[+] WhatsApp Number:</span>';
-        html += '    <input id="leadPhone" type="tel" class="ledger-line typewriter-ink" placeholder="e.g. +91 98765 43210" value="' + (WIZARD_STATE.clientPhone || '') + '" autocomplete="tel" />';
+        html += '    <span class="field-lbl">[+] COMPANY NAME &amp; WEBSITE:</span>';
+        html += '    <input id="leadPhone" type="text" class="ledger-line typewriter-ink" placeholder="company.com" value="' + (WIZARD_STATE.clientPhone || '') + '" />';
         html += '  </div>';
 
         html += '  <div class="field-row-area" style="margin-top: 2px;">';
-        html += '    <span class="field-lbl" style="display: block; margin-bottom: 2px;">[+] Project Notes:</span>';
-        html += '    <textarea id="teamMessage" class="paper-textarea typewriter-ink" rows="2" placeholder="Briefly describe what you want to achieve...">' + (WIZARD_STATE.teamMessage || '') + '</textarea>';
+        html += '    <span class="field-lbl" style="display: block; margin-bottom: 2px;">[+] ADDITIONAL CONTEXT (OPTIONAL):</span>';
+        html += '    <textarea id="teamMessage" class="paper-textarea typewriter-ink" rows="2" placeholder="Any existing documentation, Loom links, or specific constraints?">' + (WIZARD_STATE.teamMessage || '') + '</textarea>';
         html += '  </div>';
 
         html += '  <button id="submitLedger" class="dispatch-action-btn typewriter-ink">';
@@ -1151,7 +1281,7 @@
         html += '</div>';
 
         html += '<div class="sheet-footer-bar typewriter-ink">';
-        html += '  <span>WHERE SHOULD WE SEND THE SCOPE?</span>';
+        html += '  <span>04 // DISPATCH &amp; DELIVERY DETAILS</span>';
         html += '  <span>[ ENTER ↵ TO REVIEW ]</span>';
         html += '</div>';
       }
@@ -1182,7 +1312,7 @@
       const pEmail = document.getElementById('leadEmail');
       const pPhone = document.getElementById('leadPhone');
       const messageInput = document.getElementById('teamMessage');
-      const transmitBtn = document.getElementById('submitLedger') || document.getElementById('dispatchBtn');
+      const transmitBtn = document.getElementById('submitLedger');
 
       if (pName) {
         pName.addEventListener('input', () => { WIZARD_STATE.clientName = pName.value; });
@@ -1309,10 +1439,10 @@
       // 1. Play return005.wav for Enter / submit action
       this.sound.playReturnSound();
 
-      // Hide ambient banner if present so it doesn't overlap spread header
-      if (this.ambientBanner) {
-        this.ambientBanner.classList.add('hidden');
-        this.ambientBanner.style.display = 'none';
+      // Hide top HUD so it never overlaps spread header
+      const topHud = document.querySelector('.top-hud');
+      if (topHud) {
+        topHud.style.display = 'none';
       }
 
       // 2. Roll paper backwards/down into platen roller
@@ -1339,6 +1469,8 @@
       if (this.fullFrameReview) {
         this.fullFrameReview.classList.remove('active');
       }
+      const topHud = document.querySelector('.top-hud');
+      if (topHud) topHud.style.display = '';
       this.sound.playPaperRollSound();
       if (this.typewriterPaper) {
         this.typewriterPaper.classList.remove('paper-ejecting');
@@ -1355,6 +1487,8 @@
       if (this.fullFrameReview) {
         this.fullFrameReview.classList.remove('active');
       }
+      const topHud = document.querySelector('.top-hud');
+      if (topHud) topHud.style.display = '';
       this.sound.playPaperRollSound();
 
       if (this.typewriterPaper) {
@@ -1382,7 +1516,7 @@
     }
 
     populateFullFrameReview() {
-      // Sheet 1: What Are We Building? [ 01 / 04 ]
+      // Sheet 1: 01 // SYSTEM & WORKFLOW SCOPE
       const s1 = WIZARD_SCHEMA[1];
       const sheet1El = document.getElementById('review-sheet-1');
       if (s1 && sheet1El) {
@@ -1405,16 +1539,16 @@
         });
         h1 += '</div>';
         h1 += '<div class="sheet-card-action">';
-        h1 += '  <button class="sheet-change-btn" data-step="1">[ ↺ CHANGE GOAL ]</button>';
+        h1 += '  <button class="sheet-change-btn" data-step="1">[ ↺ CHANGE SCOPE ]</button>';
         h1 += '</div>';
         h1 += '<div class="sheet-footer">';
-        h1 += '  <span>RECORD: 01-GOAL</span>';
+        h1 += '  <span>RECORD: 01-SCOPE</span>';
         h1 += '  <span>STATUS: ' + (WIZARD_STATE.capability ? 'CONFIGURED ✓' : 'PENDING') + '</span>';
         h1 += '</div>';
         sheet1El.innerHTML = h1;
       }
 
-      // Sheet 2: When Do You Need It? [ 02 / 04 ]
+      // Sheet 2: 02 // TIMELINE & TARGET DEPLOYMENT
       const s2 = WIZARD_SCHEMA[2];
       const sheet2El = document.getElementById('review-sheet-2');
       if (s2 && sheet2El) {
@@ -1446,7 +1580,7 @@
         sheet2El.innerHTML = h2;
       }
 
-      // Sheet 3: Planned Investment [ 03 / 04 ]
+      // Sheet 3: 03 // SCOPE & BUDGET ALLOCATION
       const s3 = WIZARD_SCHEMA[3];
       const sheet3El = document.getElementById('review-sheet-3');
       if (s3 && sheet3El) {
@@ -1478,7 +1612,7 @@
         sheet3El.innerHTML = h3;
       }
 
-      // Sheet 4: Your Details & Notes [ 04 / 04 ]
+      // Sheet 4: 04 // DISPATCH & DELIVERY DETAILS
       const s4 = WIZARD_SCHEMA[4];
       const sheet4El = document.getElementById('review-sheet-4');
       if (s4 && sheet4El) {
@@ -1488,7 +1622,7 @@
         h4 += '</div>';
         h4 += '<div class="sheet-body-options">';
         h4 += '  <div class="sheet-field-row">';
-        h4 += '    <div class="sheet-field-label">[+] NAME / COMPANY:</div>';
+        h4 += '    <div class="sheet-field-label">[+] FULL NAME:</div>';
         h4 += '    <div class="sheet-field-val">' + this.escapeHtml(WIZARD_STATE.clientName || 'NOT SPECIFIED') + '</div>';
         h4 += '  </div>';
         h4 += '  <div class="sheet-field-row">';
@@ -1496,20 +1630,20 @@
         h4 += '    <div class="sheet-field-val">' + this.escapeHtml(WIZARD_STATE.clientEmail || 'NOT SPECIFIED') + '</div>';
         h4 += '  </div>';
         h4 += '  <div class="sheet-field-row">';
-        h4 += '    <div class="sheet-field-label">[+] WHATSAPP NUMBER:</div>';
+        h4 += '    <div class="sheet-field-label">[+] COMPANY / WEBSITE:</div>';
         h4 += '    <div class="sheet-field-val">' + this.escapeHtml(WIZARD_STATE.clientPhone || 'NOT PROVIDED') + '</div>';
         h4 += '  </div>';
         h4 += '  <div class="sheet-field-row">';
-        h4 += '    <div class="sheet-field-label">[+] PROJECT NOTES:</div>';
-        h4 += '    <div class="sheet-field-message">' + this.escapeHtml(WIZARD_STATE.teamMessage || 'NO NOTES ATTACHED') + '</div>';
+        h4 += '    <div class="sheet-field-label">[+] ADDITIONAL CONTEXT:</div>';
+        h4 += '    <div class="sheet-field-message">' + this.escapeHtml(WIZARD_STATE.teamMessage || 'NO ADDITIONAL CONTEXT') + '</div>';
         h4 += '  </div>';
-        h4 += '  <div class="sheet-stamp-box">CONFIDENTIAL RECORD // REF: 849-B</div>';
+        h4 += '  <div class="sheet-stamp-box">DIRECT ENGINEERING REVIEW // STRICT NDA COMPLIANCE</div>';
         h4 += '</div>';
         h4 += '<div class="sheet-card-action">';
-        h4 += '  <button class="sheet-change-btn" data-step="4">[ ↺ EDIT DETAILS &amp; NOTES ]</button>';
+        h4 += '  <button class="sheet-change-btn" data-step="4">[ ↺ EDIT DISPATCH DETAILS ]</button>';
         h4 += '</div>';
         h4 += '<div class="sheet-footer">';
-        h4 += '  <span>RECORD: 04-CONTACT</span>';
+        h4 += '  <span>RECORD: 04-DISPATCH</span>';
         h4 += '  <span>STATUS: READY FOR TRANSMISSION</span>';
         h4 += '</div>';
         sheet4El.innerHTML = h4;
@@ -1543,7 +1677,7 @@
     async finalizeMatrixDispatch() {
       if (this.reviewConfirmBtn) {
         this.reviewConfirmBtn.disabled = true;
-        this.reviewConfirmBtn.textContent = 'TRANSMITTING TO TEAM...';
+        this.reviewConfirmBtn.textContent = 'SUBMITTING SPECIFICATION...';
       }
 
       this.sound.playReturnSound();
@@ -1605,7 +1739,7 @@
         }
       };
 
-      const webhookUrl = window.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook-test/a9393481-aa8c-46bd-9335-4abdf388aba1';
+      const webhookUrl = window.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/a9393481-aa8c-46bd-9335-4abdf388aba1';
 
       try {
         await fetch(webhookUrl, {
@@ -1630,7 +1764,7 @@
         }
         if (this.reviewConfirmBtn) {
           this.reviewConfirmBtn.disabled = false;
-          this.reviewConfirmBtn.textContent = 'TRANSMIT SPECIFICATION TO TEAM ↵';
+          this.reviewConfirmBtn.textContent = 'SUBMIT SPECIFICATION FOR TECHNICAL AUDIT ↵';
         }
         if (this.transmittedStamp) {
           this.transmittedStamp.classList.remove('stamped');
@@ -1647,33 +1781,33 @@
     renderPaperReceipt(payload) {
       let html = '';
       html += '<div class="sheet-meta-bar typewriter-ink">';
-      html += '  <span>DISPATCH RECEIPT // ARCHIVED</span>';
-      html += '  <span>STATUS: RELAYED</span>';
+      html += '  <span>AUDIT QUEUED // SPECIFICATION INTAKE</span>';
+      html += '  <span>STATUS: ROUTED TO ENGINEERING</span>';
       html += '</div>';
 
-      html += '<div class="sheet-directive typewriter-ink">SPECIFICATION AUDIT // RECEIPT</div>';
+      html += '<div class="sheet-directive typewriter-ink">SPECIFICATION AUDIT // CONFIRMATION RECEIPT</div>';
 
       html += '<div style="font-size: 10px; line-height: 1.5; color: #0F172A; margin-top: 4px;" class="typewriter-ink">';
-      html += '  <div><strong>OFFICER:</strong> ' + payload.client.name + '</div>';
-      html += '  <div><strong>RELAY:</strong> ' + payload.client.email + '</div>';
-      html += '  <div><strong>PHONE:</strong> ' + (payload.client.phone || 'N/A') + '</div>';
+      html += '  <div><strong>CONTACT:</strong> ' + payload.client.name + '</div>';
+      html += '  <div><strong>WORK EMAIL:</strong> ' + payload.client.email + '</div>';
+      html += '  <div><strong>COMPANY / WEB:</strong> ' + (payload.client.phone || 'N/A') + '</div>';
       html += '  <div style="margin-top: 6px; border-top: 1px dashed rgba(15,23,42,0.3); padding-top: 4px;">';
-      html += '    <div><strong>[ SERVICE ]:</strong> ' + payload.specification.capability + '</div>';
+      html += '    <div><strong>[ OBJECTIVE ]:</strong> ' + payload.specification.capability + '</div>';
       html += '    <div><strong>[ TIMELINE ]:</strong> ' + payload.specification.velocity + '</div>';
       html += '    <div><strong>[ BUDGET ]:</strong> ' + payload.specification.capital + '</div>';
       if (payload.client.teamMessage) {
-        html += '    <div><strong>[ NOTES ]:</strong> ' + payload.client.teamMessage + '</div>';
+        html += '    <div><strong>[ CONTEXT ]:</strong> ' + payload.client.teamMessage + '</div>';
       }
       html += '  </div>';
       html += '</div>';
 
       html += '<button id="newTransmissionBtn" class="dispatch-action-btn typewriter-ink" style="margin-top: 10px;">';
-      html += '  [ NEW TRANSMISSION / RESET ]';
+      html += '  [ NEW SPECIFICATION / RESET ]';
       html += '</button>';
 
       html += '<div class="sheet-footer-bar typewriter-ink" style="margin-top: 8px;">';
-      html += '  <span>ROYAL TELETYPE</span>';
-      html += '  <span>DISPATCH ID: ' + Math.random().toString(36).substring(2, 8).toUpperCase() + '</span>';
+      html += '  <span>ENTERPRISE SPECIFICATION AUDIT</span>';
+      html += '  <span>AUDIT ID: ' + Math.random().toString(36).substring(2, 8).toUpperCase() + '</span>';
       html += '</div>';
 
       this.paperContent.innerHTML = html;
@@ -1696,21 +1830,22 @@
 
       if (ledgerRecords) {
         let recHtml = '';
-        recHtml += '<div class="ledger-row"><span class="ledger-key">SERVICE:</span><span class="ledger-val highlight">' + payload.specification.capability + '</span></div>';
+        recHtml += '<div class="ledger-confirmation-notice" style="font-size: 11px; line-height: 1.5; color: #166534; background: rgba(34, 197, 94, 0.08); border-left: 3px solid #16a34a; padding: 9px 12px; margin-bottom: 12px;">Your project parameters have been routed directly to our automation engineering team. We are running feasibility checks on your selected tech stack and will email your preliminary n8n architecture map within 24 business hours.</div>';
+        recHtml += '<div class="ledger-row"><span class="ledger-key">PRIMARY OBJECTIVE:</span><span class="ledger-val highlight">' + payload.specification.capability + '</span></div>';
         if (payload.specification.capabilityBrief) {
-          recHtml += '<div class="ledger-row" style="margin-top:-3px;margin-bottom:6px;"><span class="ledger-key">BRIEF:</span><span class="ledger-val" style="font-size:9.5px;color:#57534E;font-style:italic;">' + payload.specification.capabilityBrief + '</span></div>';
+          recHtml += '<div class="ledger-row" style="margin-top:-3px;margin-bottom:6px;"><span class="ledger-key">SCOPE BRIEF:</span><span class="ledger-val" style="font-size:9.5px;color:#57534E;font-style:italic;">' + payload.specification.capabilityBrief + '</span></div>';
         }
-        recHtml += '<div class="ledger-row"><span class="ledger-key">TIMELINE:</span><span class="ledger-val highlight">' + payload.specification.velocity + '</span></div>';
+        recHtml += '<div class="ledger-row"><span class="ledger-key">TARGET DEPLOYMENT:</span><span class="ledger-val highlight">' + payload.specification.velocity + '</span></div>';
         if (payload.specification.velocityBrief) {
-          recHtml += '<div class="ledger-row" style="margin-top:-3px;margin-bottom:6px;"><span class="ledger-key">BRIEF:</span><span class="ledger-val" style="font-size:9.5px;color:#57534E;font-style:italic;">' + payload.specification.velocityBrief + '</span></div>';
+          recHtml += '<div class="ledger-row" style="margin-top:-3px;margin-bottom:6px;"><span class="ledger-key">TIMELINE BRIEF:</span><span class="ledger-val" style="font-size:9.5px;color:#57534E;font-style:italic;">' + payload.specification.velocityBrief + '</span></div>';
         }
-        recHtml += '<div class="ledger-row"><span class="ledger-key">BUDGET:</span><span class="ledger-val highlight">' + payload.specification.capital + '</span></div>';
+        recHtml += '<div class="ledger-row"><span class="ledger-key">BUDGET ALLOCATION:</span><span class="ledger-val highlight">' + payload.specification.capital + '</span></div>';
         if (payload.specification.capitalBrief) {
-          recHtml += '<div class="ledger-row" style="margin-top:-3px;margin-bottom:6px;"><span class="ledger-key">BRIEF:</span><span class="ledger-val" style="font-size:9.5px;color:#57534E;font-style:italic;">' + payload.specification.capitalBrief + '</span></div>';
+          recHtml += '<div class="ledger-row" style="margin-top:-3px;margin-bottom:6px;"><span class="ledger-key">BUDGET BRIEF:</span><span class="ledger-val" style="font-size:9.5px;color:#57534E;font-style:italic;">' + payload.specification.capitalBrief + '</span></div>';
         }
-        recHtml += '<div class="ledger-row"><span class="ledger-key">CONTACT:</span><span class="ledger-val">' + payload.client.name + ' // ' + (payload.client.phone || 'NO PHONE') + ' // ' + payload.client.email + '</span></div>';
+        recHtml += '<div class="ledger-row"><span class="ledger-key">DISPATCH CONTACT:</span><span class="ledger-val">' + payload.client.name + ' // ' + (payload.client.phone || 'NO COMPANY/WEB') + ' // ' + payload.client.email + '</span></div>';
         if (payload.client.teamMessage) {
-          recHtml += '<div class="ledger-row"><span class="ledger-key">NOTES:</span><span class="ledger-val">' + payload.client.teamMessage + '</span></div>';
+          recHtml += '<div class="ledger-row"><span class="ledger-key">ADDITIONAL CONTEXT:</span><span class="ledger-val">' + payload.client.teamMessage + '</span></div>';
         }
         ledgerRecords.innerHTML = recHtml;
       }
@@ -1724,7 +1859,7 @@
         copyBtn.onclick = () => {
           this.copySummaryToClipboard();
           copyBtn.textContent = 'COPIED TO CLIPBOARD';
-          setTimeout(() => { copyBtn.textContent = 'COPY SUMMARY'; }, 2000);
+          setTimeout(() => { copyBtn.textContent = 'COPY SUBMISSION SUMMARY'; }, 2000);
         };
       }
 
@@ -1771,18 +1906,19 @@
     }
 
     copySummaryToClipboard() {
-      let output = '=== ROYAL TELETYPE SPECIFICATION ===\n';
+      let output = '=== ENTERPRISE AUTOMATION AUDIT // SPECIFICATION ===\n';
       output += 'TIMESTAMP: ' + new Date().toISOString() + '\n\n';
-      output += '[ OFFICER ] ' + (WIZARD_STATE.clientName || 'UNKNOWN') + '\n';
-      output += '[ EMAIL ] ' + (WIZARD_STATE.clientEmail || 'N/A') + '\n';
-      output += '[ PHONE ] ' + (WIZARD_STATE.clientPhone || 'N/A') + '\n\n';
-      output += '[ CAPABILITY ] ' + (WIZARD_STATE.capability || 'N/A') + '\n';
-      output += '[ VELOCITY ] ' + (WIZARD_STATE.velocity || 'N/A') + '\n';
-      output += '[ CAPITAL ] ' + (WIZARD_STATE.capital || 'N/A') + '\n';
+      output += '[ CONTACT ] ' + (WIZARD_STATE.clientName || 'UNKNOWN') + '\n';
+      output += '[ WORK EMAIL ] ' + (WIZARD_STATE.clientEmail || 'N/A') + '\n';
+      output += '[ COMPANY / WEBSITE ] ' + (WIZARD_STATE.clientPhone || 'N/A') + '\n\n';
+      output += '[ PRIMARY OBJECTIVE ] ' + (WIZARD_STATE.capability || 'N/A') + '\n';
+      output += '[ TARGET DEPLOYMENT ] ' + (WIZARD_STATE.velocity || 'N/A') + '\n';
+      output += '[ BUDGET ALLOCATION ] ' + (WIZARD_STATE.capital || 'N/A') + '\n';
       if (WIZARD_STATE.teamMessage) {
-        output += '[ MESSAGE ] ' + WIZARD_STATE.teamMessage + '\n';
+        output += '[ ADDITIONAL CONTEXT ] ' + WIZARD_STATE.teamMessage + '\n';
       }
-      output += '====================================';
+      output += '\nYour project parameters have been routed directly to our automation engineering team. We are running feasibility checks on your selected tech stack and will email your preliminary n8n architecture map within 24 business hours.\n';
+      output += '====================================================';
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(output).catch(() => {});
@@ -1792,52 +1928,17 @@
 
   // Ensure AudioContext is unlocked & running on very first user gesture anywhere
   const unlockAudioGesture = () => {
-    AudioEngine.init();
-    if (AudioEngine.ctx && AudioEngine.ctx.state === 'suspended') {
-      AudioEngine.ctx.resume().catch(() => {});
-    }
+    AudioEngine.unlock();
   };
-  ['pointerdown', 'mousedown', 'keydown', 'touchstart'].forEach((evt) => {
-    window.addEventListener(evt, unlockAudioGesture, { passive: true });
+  ['pointerdown', 'mousedown', 'keydown', 'touchstart', 'click'].forEach((evt) => {
+    window.addEventListener(evt, unlockAudioGesture, { capture: true, passive: true });
+    document.addEventListener(evt, unlockAudioGesture, { capture: true, passive: true });
   });
 
   // ==========================================================================
   // 8. BOOTSTRAP TELETYPE ON DOM READY
   // ==========================================================================
   document.addEventListener('DOMContentLoaded', () => {
-    // Autoplay Background Video Resiliency across Safari, Chrome, and Mobile
-    const bgVideo = document.getElementById('bg-video');
-    if (bgVideo) {
-      bgVideo.muted = true;
-      bgVideo.defaultMuted = true;
-      bgVideo.playsInline = true;
-
-      const startVideoPlayback = () => {
-        const p = bgVideo.play();
-        if (p && typeof p.catch === 'function') {
-          p.catch(() => {});
-        }
-      };
-
-      if (bgVideo.readyState >= 2) {
-        startVideoPlayback();
-      } else {
-        bgVideo.addEventListener('loadeddata', startVideoPlayback, { once: true });
-        bgVideo.addEventListener('canplay', startVideoPlayback, { once: true });
-        startVideoPlayback();
-      }
-
-      // Fallback: unlock on first gesture if browser power-saving or autoplay policy gated it
-      const gestureUnlockVideo = () => {
-        if (bgVideo.paused) {
-          bgVideo.play().catch(() => {});
-        }
-      };
-      ['pointerdown', 'mousedown', 'keydown', 'touchstart', 'click'].forEach((evt) => {
-        window.addEventListener(evt, gestureUnlockVideo, { capture: true, passive: true });
-      });
-    }
-
     const engine = new TypewriterEngine();
     engine.init();
     window.teletypeEngine = engine;
